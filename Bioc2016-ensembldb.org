@@ -1,0 +1,189 @@
+#+TITLE: Building and Using Ensembl Based Annotation Packages with =ensembldb=
+#+AUTHOR: Johannes Rainer
+#+EMAIL: johannes.rainer@eurac.edu
+#+DESCRIPTION: Org-mode presentation for the Bioconductor conference 2016 in Stanford.
+#+LANGUAGE: en
+#+OPTIONS: ^:{}
+#+PROPERTY: session *R_Bioc2016*
+#+STARTUP: overview
+#+STARTUP: hideblocks
+
+# setup stuff: org-cycle-include-plain-lists -> set to integrate
+
+* Building and Using Ensembl-based Annotation Packages with =ensembldb=
+
+** Introduction
+
++ =TxDb.*= objects from =GenomicFeatures= provide gene model annotations.
+
++ =ensembldb= package defines =EnsDb= class also providing gene models.
+
++ =EnsDB= objects:
+  - Designed for Ensembld based annotations: new attributes /gene biotype/ and /tx
+    biotype/.
+  - Allow to query specific annotations using a simple filter framework.
+  - interchangeable with =TxDb= objects.
+  - Support =AnnotationDbi='s =select= method.
+
+** Usage
+
+*** Query gene, transcript, exon information
+
++ =EnsDb= objects can be used just like =TxDb= objects.
+
++ Available methods:
+  - =genes=
+  - =transcripts=
+  - =transcriptsBy=
+  - =exons=
+  - =exonsBy=
+  - =cdsBy=
+  - =fiveUTRsByTranscripts=
+  - =threeUTRsByTranscripts=
+
++ Example code
+
+#+BEGIN_SRC R
+  ## Load an EnsDb package matching Ensembl version 81
+  library(EnsDb.Hsapiens.v81)
+  edb <- EnsDb.Hsapiens.v81
+
+  ## List the available tables and columns
+  listTables(edb)
+
+  ## Now just get all genes
+  genes(edb)
+
+  ## Alternatively, we can specify to return the results as DataFrame
+  transcripts(edb, return.type="DataFrame")
+#+END_SRC
+
+Query specific information from the database.
+
+#+BEGIN_SRC R
+  ####
+  ## Retrieve only genes on chromosome Y.
+  ## Create a filter object
+  sf <- SeqnameFilter("Y")
+
+  ## Retrieve the data
+  genes(edb, filter=SeqnameFilter("Y"))
+
+  ####
+  ## Combine filters.
+  ## Make a gene biotype filter
+  listGenebiotypes(edb)
+
+  ## Define a filter that returns everything except protein coding genes
+  bf <- GenebiotypeFilter("protein_coding", condition="!=")
+
+  ## Get all non-coding genes from chromosome Y
+  gns <- genes(edb, filter=list(sf, bf))
+
+  gns
+
+  sort(table(gns$gene_biotype))
+#+END_SRC
+
+*** Available filter objects.
+
++ For genes:
+  + =GeneidFilter=
+  + =GenenameFilter=
+  + =EntrezidFilter=
+  + =GenebiotypeFilter=
++ For transcripts:
+  + =TxidFilter=
+  + =TxbiotypeFilter=
++ For Exons:
+  + =ExonidFilter=
+  + =ExonrankFilter=
++ /Generic/ filters:
+  + =SeqnameFilter=
+  + =SeqstrandFilter=
+  + =SeqstartFilter=
+  + =SeqendFilter=
+  + =GRangesFilter=: condition can be /within/ or /overlapping/.
+
++ Multiple filters can be combined with a logical AND.
+
+*** Use it in feature counting
+
+
+
+Need a working example there... subset of my RNA-seq experiment?
+*** Get genomic sequences etc.
+
++ Can we use UCSC genome sequences too?
+
+*** Plotting
++ =Gviz=.
+
+#+BEGIN_SRC R
+  BAM_PATH <- "/Volumes/jodatacrypt/EURAC/2015/2015-05-ARVD-RNA-seq/81/"
+
+  bamF <- c("M003_P7_Adipo_72h_GCCAAT_L001-mixed-sorted.bam",
+            "V3P6_Adipo_72h_CTTGTA_L001-mixed-sorted.bam")
+
+  algnTracks <- lapply(bamF, function(z){
+      return(AlignmentsTrack(paste0(BAM_PATH, z), name=z))
+  })
+
+  gat <- GenomeAxisTrack()
+  GRCh38 <- getGenomeFaFile(edb)
+  SI <- seqinfo(GRCh38)[c(1:22, "X", "Y")]
+  gr <- GRanges(seqnames=seqnames(SI), IRanges(rep(1, length(SI)),
+                                               seqlengths(SI)))
+  ## Get the sequences,
+  dnas <- getSeq(GRCh38, gr)
+  seqTr <- SequenceTrack(dnas, chromosome="1", genome="GRCh38", name="GRCh38")
+
+  ska2 <- genes(edb, filter=GenenameFilter("SKA2"))
+
+  grt <- getGeneRegionTrackForGviz(edb, chromosome=seqlevels(ska2),
+                                   start=start(ska2), end=end(ska2))
+  geneTrack <- GeneRegionTrack(grt)
+
+  theTracks <- list(gat, seqTr, geneTrack)
+  plotTracks(theTracks, transcriptAnnotation="symbol",
+             chromosome=seqlevels(ska2))
+
+
+  plotTracks(c(theTracks, algnTracks), transcriptAnnotation="symbol",
+             chromosome=seqlevels(ska2))
+#+END_SRC
+
+*** Using the =AnnotationDbi= API
+*** The =ensembldb= /shiny/ app
+
+** Building annotation databases
+*** The /hard way/: with Ensembl's Perl API
+*** The /easy way/: from gtf and gff files
+*** Even easier: use =AnnotationDbi=
+
+** Some internals on the filter framework
+
++ How does the filter framework work?
++ Show the =where= and =column= methods.
++ Show with an example to the =mirtarbase= package: =where= for =EnsDb=, for
+  =Mirtarbase=, use the same filter for queries in both databases.
++ Combine that two find target genes of =miR-29b-3p= and check their counts in
+  RNA-seq.
+
+# Basically, filters is not the most appropriate name, since these classes are
+# used to build the Query. WhereGeneid might be bettern than GeneidFilter.
+
+** Future stuff
+
++ Combine filters similar to the =Rules= objects: this would need =FilterSet=
+  and =FilterSetList= objects.
+
+* TODOs								   :noexport:
+
+** TODO Get a count test data set, 2 samples.
+
+Check for samples that have comparable number of reads.
+Difference in gene SKA2? -> host gene of miR-301a-3p, which has a F2RL1 as
+target gene, and that is differentially expressed.
+
+bam files are merged from 4 lanes, alignment was performed mixed.
