@@ -4,6 +4,7 @@
 #+SETUPFILE: orgsetup.org
 #+PROPERTY: session *R_Bioc2016*
 #+STARTUP: overview
+#+STARTUP: indent
 
 * Building and Using Ensembl-based Annotation Packages with =ensembldb=
 
@@ -32,9 +33,6 @@
   - =cdsBy=
   - =fiveUTRsByTranscripts=
   - =threeUTRsByTranscripts=
-+ Additions:
-  - Define the type of object we want to get.
-  - Use of filter(s) to query specific information.
 + _Example_: get genes and transcript models.
 
   #+NAME: usage-basic
@@ -43,6 +41,7 @@
     library(EnsDb.Hsapiens.v81)
     edb <- EnsDb.Hsapiens.v81
 
+    ## Database layout
     ## List the available tables and columns
     listTables(edb)
 
@@ -61,27 +60,9 @@
     ## Create a filter object
     sf <- SeqnameFilter("Y")
 
-    sf
-
     ## Retrieve the data
     genes(edb, filter=SeqnameFilter("Y"))
 
-    ####
-    ## Combine filters:
-    ## Create a 'gene biotype' filter
-    listGenebiotypes(edb)
-
-    ## Define a filter that returns everything except protein coding genes
-    bf <- GenebiotypeFilter("protein_coding", condition="!=")
-
-    bf
-
-    ## Get all non-coding genes from chromosome Y
-    gns <- genes(edb, filter=list(sf, bf))
-
-    gns
-
-    sort(table(gns$gene_biotype))
   #+END_SRC
 
 *** Supported filter objects.
@@ -104,7 +85,7 @@
   + =SeqendFilter=
   + =GRangesFilter=: condition can be /within/ or /overlapping/.
 
-+ Multiple filters can be combined with a logical AND.
++ Multiple filters can be combined with a logical /AND/.
 + _Example_: combine filters.
 
   #+NAME: usage-combine-filters
@@ -119,9 +100,13 @@
     genes(edb, filter=grf)
 
     ####
-    ## Combine filters
-    ## Get only miRNA genes.
-    genes(edb, filter=list(grf, GenebiotypeFilter("miRNA")))
+    ## Combine filters: add a GenebiotypeFilter
+    ## List all available gene biotypes:
+    listGenebiotypes(edb)
+    ## Get all genes in the region except pre-miRNAs and snRNAs.
+    genes(edb, filter=list(grf,
+                           GenebiotypeFilter(c("miRNA", "snRNA"),
+                                             condition="!=")))
 
 
     ####
@@ -134,14 +119,15 @@
 
 *** Annotation for feature counting
 
++ =EnsDb= databases can also provide gene model information for feature counting.
 + In combination with =summarizeOverlaps= from the =GenomicAlignments= package.
 + _Example_: get gene models for feature counting with =summarizeOverlaps=.
 
   #+NAME: usage-summarizeoverlaps
   #+BEGIN_SRC R :eval never :ravel eval=FALSE
     ####
-    ## Count reads within exons per gene:
-    ## -> get the exons by gene, for chromosome 1:22, X, Y,
+    ## Task: count reads within exons per gene:
+    ##  o get exons by gene, for chromosomes 1:22, X, Y,
     ##    excluding also locus reference genomic genes (LRG)
     exns <- exonsBy(edb, by="gene", filter=list(SeqnameFilter(c(1:22, "X", "Y")),
                                                 GeneidFilter("ENSG%", "like")))
@@ -157,13 +143,13 @@
     ## Define a ScanBamParam with a mapping quality filter.
     sbp <- ScanBamParam(mapqFilter=30)
 
-    ##### DONTRUN
+    ##### > DONTRUN
     ## Do the gene counting
     geneCounts <- bplapply(bfl, FUN=summarizeOverlaps, features=exns,
                            mode="IntersectionStrict", ignore.strand=TRUE,
                            singleEnd=FALSE, fragments=TRUE, param=sbp)
     geneCounts <- do.call(cbind, geneCounts)
-    ####
+    #### <
 
     ## Load pre-calculated counts
     load("data/RData/tmp-geneCounts-all-chrom.RData")
@@ -190,7 +176,7 @@
 
   #+END_SRC
 
-*** Get genomic sequences etc.
+*** Get genomic or transcript sequences
 
 + =BSGenome= packages provide genomic sequence for a variety of species.
 + Most are based on UCSC data, that use different genome
@@ -215,10 +201,12 @@
     ## Easier way: use the dedicated getGenomeFaFile method
     fafile <- getGenomeFaFile(edb)
 
+    ## Task: get transcript sequences for SKA2
     ## Get all exons by transcript.
     ska2Txs <- exonsBy(edb, by="tx", filter=GenenameFilter("SKA2"))
 
-    ## Get sequence of individual exons.
+    ## Get sequence of individual exons for the first tx
+    library(Biostrings)
     getSeq(fafile, ska2Txs[[1]])
 
     ## Alternative: use extractTranscriptSeqs from GenomicFeatures.
@@ -236,8 +224,8 @@
     ##  Try to get the sequence from the BSgenome package.
     library(BSgenome.Hsapiens.UCSC.hg38)
 
-    ## Doesn't work, because of different chromosom naming.
-    ##extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2Txs)
+    ## Doesn't work, because of different chromosome naming.
+    ## extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2Txs)
 
     ## Solution: change the seqlevel style
     seqlevelsStyle(edb)
@@ -249,6 +237,7 @@
     ska2Txs <- exonsBy(edb, filter=GenenameFilter("SKA2"))
     seqlevels(ska2Txs)
 
+    ## Get the tx sequence using the BSgenome package.
     extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2Txs)
 
     ## Compare to the FaFile from Ensembl.
@@ -267,49 +256,26 @@
 + _Example_: plot genes encoded on a chromosomal region using =Gviz=.
 
   #+NAME: usage-gviz
-  #+BEGIN_SRC R :results output graphics :file gviz-ska.pdf :exports both
+  #+BEGIN_SRC R :results output graphics :file gviz-ska.pdf :exports both :width 8 :height 6
     library(Gviz)
 
     ## Get the gene SKA2
     ska2 <- genes(edb, filter=GenenameFilter("SKA2"))
 
+    ## Get all genes in the same genomic region and return as GRanges
+    ## formatted for Gviz.
     grt <- getGeneRegionTrackForGviz(edb, chromosome=seqlevels(ska2),
                                      start=start(ska2), end=end(ska2))
+    ## Alternatively, using a GRangesFilter
+    strand(ska2) <- "*"
+    grt <- getGeneRegionTrackForGviz(edb,
+                                     filter=GRangesFilter(ska2,
+                                                          condition="overlapping"))
+
     geneTrack <- GeneRegionTrack(grt)
-    theTracks <- list(geneTrack)
-    plotTracks(theTracks, transcriptAnnotation="symbol",
+    ## Plot the chromosomal region.
+    plotTracks(list(GenomeAxisTrack(), geneTrack), transcriptAnnotation="symbol",
                chromosome=seqlevels(ska2))
-
-    ## BAM_PATH <- "data/bam/"
-
-    ## ##bamF <- c("A-chr5-17.bam", "B-chr5-17.bam")
-    ## bamF <- c("A.bam", "B.bam")
-    ## algnTracks <- lapply(bamF, function(z){
-    ##     return(AlignmentsTrack(paste0(BAM_PATH, z), name=z))
-    ## })
-
-    ## gat <- GenomeAxisTrack()
-    ## GRCh38 <- getGenomeFaFile(edb)
-    ## SI <- seqinfo(GRCh38)[c(1:22, "X", "Y")]
-    ## gr <- GRanges(seqnames=seqnames(SI), IRanges(rep(1, length(SI)),
-    ##                                              seqlengths(SI)))
-    ## ## Get the sequences,
-    ## dnas <- getSeq(GRCh38, gr)
-    ## seqTr <- SequenceTrack(dnas, chromosome="1", genome="GRCh38", name="GRCh38")
-
-    ## ska2 <- genes(edb, filter=GenenameFilter("SKA2"))
-
-    ## grt <- getGeneRegionTrackForGviz(edb, chromosome=seqlevels(ska2),
-    ##                                  start=start(ska2), end=end(ska2))
-    ## geneTrack <- GeneRegionTrack(grt)
-
-    ## theTracks <- list(gat, seqTr, geneTrack)
-    ## plotTracks(theTracks, transcriptAnnotation="symbol",
-    ##            chromosome=seqlevels(ska2))
-
-    ## plotTracks(c(theTracks, algnTracks), transcriptAnnotation="symbol",
-    ##            chromosome=seqlevels(ska2))
-    ## ??? not plotting the alignment?
   #+END_SRC
 
 + =ggbio=: we can directly pass =EnsDb= objects and filters to the plotting
@@ -317,7 +283,7 @@
 + _Example_: use =ggbio= and =ensembldb= to plot a chromosomal region.
 
   #+NAME: usage-ggbio
-  #+BEGIN_SRC R :results output graphics :file ggbio-ska2.pdf :exports both
+  #+BEGIN_SRC R :results output graphics :file ggbio-ska2.pdf :exports both :width 8 :height 6
     ## Use ggbio:
     library(ggbio)
 
@@ -325,11 +291,15 @@
     ## autoplot(edb, GenenameFilter("SKA2"))
 
     ## Or get all genes from the SKA2 genomic locus.
-    ska2ChromReg <- GRanges(seqnames=seqlevels(ska2),
-                            IRanges(start(ska2), end(ska2)))
+    strand(ska2) <- "*"
 
     ## Plot the genomic region; we're using the gene name as labels for the transcripts.
-    autoplot(edb, GRangesFilter(ska2ChromReg), names.expr="gene_name")
+    autoplot(edb, GRangesFilter(ska2), names.expr="gene_name")
+
+    autoplot(edb, GRangesFilter(ska2,
+                                condition="overlapping"),
+             names.expr="gene_name")
+
   #+END_SRC
 
 *** =ensembldb= and the =AnnotationDbi= API
@@ -357,14 +327,14 @@
     txKeys
 
     ## Use these keys in the select call
-    select(edb, keys=txKeys, keytype="TXID")
+    head(select(edb, keys=txKeys, keytype="TXID"))
 
     ## Or use the filter directly in the select call: submit filters with
     ## 'keys' argument.
-    select(edb, keys=GenenameFilter("SKA2"))
+    head(select(edb, keys=GenenameFilter("SKA2")))
   #+END_SRC
 
-*** The =ensembldb= /shiny/ app
+*** The =ensembldb= shiny app
 
 + A =shiny= app is also available for =EnsDb= objects, start it with =runEnsDbApp=.
 + _Example_: search for a gene using the shiny app and return the result to R.
@@ -379,12 +349,13 @@
     Result
 #+END_SRC
 
+
 ** Building annotation databases
 
 + Ensembl, Ensembl Genomes and Ensembl Plants provide annotations for a large
   number of species. All follow the same database scheme.
 
-*** The /hard way/: with Ensembl's Perl API
+*** The hard way: with Ensembl's Perl API
 
 + Requires:
   - Ensembl Perl API (and Bioperl).
@@ -414,7 +385,7 @@
                          author="Johannes Rainer")
   #+END_SRC
 
-*** The /easy way/: from gtf and gff files
+*** The easy way: from gtf and gff files
 
 + Easier and faster way: create an =EnsDb= from a /gtf/ or /gff/ file.
 + /Should/ work with all gtf and gff files from Ensembl.
@@ -422,7 +393,7 @@
 + _Example_: create an =EnsDb= from a GTF file downloaded from ftp://ftp.ensembl.org.
 
   #+NAME: building-from-gtf
-  #+BEGIN_SRC R
+  #+BEGIN_SRC R :eval never
     ## Create a EnsDb from a GTF file from Ensembl.
 
     ## Create the SQLite database file:
@@ -447,7 +418,7 @@
 + _Example_: create an =EnsDb= using =AnnotationHub=.
 
   #+NAME: building-with-annotationhub
-  #+BEGIN_SRC R :results silent :exports code
+  #+BEGIN_SRC R :results silent :exports code :eval never
     ## Create an EnsDb from a GRanges retrieved from AnnotationHub.
 
     library(AnnotationHub)
@@ -491,11 +462,12 @@
     gnf
 
     ## 'column' and 'where' methods.
-    column(gnf)
+    ensembldb:::column(gnf)
+    ## The 'where' condition for the SQL call
     where(gnf)
 
     ## These are conditional on the database object
-    column(gnf, edb)
+    ensembldb:::column(gnf, edb)
     where(gnf, edb)
   #+END_SRC
 
@@ -536,7 +508,6 @@
     mhdb <- MirhostDb.Hsapiens.v81.v21
 
     ## Re-use the GenenameFilter
-    column(gnf, mhdb)
     where(gnf, mhdb)
 
     ## Get all mature miRNAs that could be encoded in a common primary transcript.
@@ -594,42 +565,8 @@
 
 + Both packages are still in development.
 
-** Future stuff
-
-+ Combine filters similar to the =Rules= objects: this would need =FilterSet=
-  and =FilterSetList= objects.
 
 
 
-* TODOs								   :noexport:
-
-** TODO Get a count test data set, 2 samples.
-
-Check for samples that have comparable number of reads.
-Difference in gene SKA2? -> host gene of miR-301a-3p, which has a F2RL1 as
-target gene, and that is differentially expressed.
-
-bam files are merged from 4 lanes, alignment was performed mixed.
-
-Get samples: M003 P7 Adipo and V2P8: M003 tmes L001 -> A.bam V2P8 tmes L001 -> B.bam
 
 
-#+BEGIN_SRC R :eval never
-  ## Check expression of SKA2 and of F2RL1.
-  load("data/RData/example-GeneCounts.RData")
-  load("data/RData/tmp-geneCounts-all-chrom.RData")
-
-  gns <- c("SKA2", "F2RL1")
-  gns <- genes(edb, filter=GenenameFilter(gns))
-  ## They are on chr 17 and 5.
-
-  assay(GeneCounts)[names(gns), ]
-
-  tmp <- assay(GeneCountsReduced)[names(gns), ]
-
-  ## Size factor:
-  sf <- colSums(assay(geneCounts))/mean(colSums(assay(geneCounts)))
-  tmp <- assay(geneCounts)[names(gns), ]
-  tmp / sf
-
-#+END_SRC
