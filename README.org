@@ -1,0 +1,9 @@
+* Building and Using Ensembl-based Annotation Packages with =ensembldb=
+
+This repository provides the code and slides used for the =ensembldb=
+demonstration/presentation at the Bioconductor conference *BioC 2016* in Stanford.
+
+The [[file:./Bioc2016-ensembldb.org]] is the /main/ presentation file (Emacs org-mode
+file). It was exported as an /Rmd/ file and then manually edited to fix remaining
+layout problems resulting in the [[file:./Bioc2016-ensembldb_edit.Rmd]] file.
+

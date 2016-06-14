@@ -8,6 +8,8 @@
 
 * Building and Using Ensembl-based Annotation Packages with =ensembldb=
 
+Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
+
 ** Introduction
 
 + =TxDb= objects from =GenomicFeatures= provide gene model annotations.
