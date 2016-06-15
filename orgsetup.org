@@ -1,9 +1,12 @@
 # setup file with some org settings.
-#+OPTIONS: ^:{} toc:4 H:4 num:4
+#+OPTIONS: ^:{} toc:4 H:4 num:4 author:t email:t
 #+PROPERTY: exports both
 #+PROPERTY: noweb yes
 #+PROPERTY: results output verbatim
 #+PROPERTY: tangle yes
+#+PROPERTY: session *R_Bioc2016*
+
+# LaTeX stuff
 #+LATEX_HEADER: \usepackage[backend=bibtex,style=chem-rsc,hyperref=true]{biblatex}
 #+LATEX_HEADER: \usepackage{parskip}
 # > Uncomment if we're exporting as simple pdf
