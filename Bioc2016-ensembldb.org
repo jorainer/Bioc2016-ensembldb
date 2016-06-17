@@ -10,7 +10,7 @@
 
 *Johannes Rainer* (EURAC), BioC 2016 Stanford
 
-Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
+Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 ** Introduction
 
@@ -22,7 +22,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
   - Allows to query specific annotations using a simple *filter framework*.
   - Methods allow to specify the type of the returned object.
   - Interchangeable with =TxDb= objects.
-  - Support =AnnotationDbi='s =select= method.
+
 
 ** Usage
 
@@ -38,7 +38,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
   - =cdsBy=
   - =fiveUTRsByTranscripts=
   - =threeUTRsByTranscripts=
-+ _Example_: get genes and transcript data.
++ _Example_: get genes and transcripts.
 
   #+BEGIN_SRC R
     ## Load an EnsDb package matching Ensembl version 81
@@ -63,7 +63,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
 
   #+END_SRC
 
-*** Supported filters
+*** Available filters
 
 - For genes:
   + =GeneidFilter=
@@ -83,6 +83,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
   + =SeqendFilter=
   + =GRangesFilter=: condition can be /within/ or /overlapping/.
 
+- Use of filters can speed up queries.
 - Multiple filters can be combined with a logical /AND/.
 - Each filter supports 1:n values and also a /like/ condition.
 - _Example_: combine filters.
@@ -96,16 +97,15 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
     ## Get all genes encoded in this region.
     genes(edb, filter=grf, columns=c("gene_name", "gene_biotype"))
 
-    ####
     ## Combine with a GenebiotypeFilter to get all genes in the region
-    ## except pre-miRNAs and snRNAs.
-    ## 1) List all available gene biotypes:
-    listGenebiotypes(edb)
-
-    ## Apply both filters.
+    ## EXCEPT pre-miRNAs and snRNAs.
     genes(edb, filter=list(grf,
                            GenebiotypeFilter(c("miRNA", "snRNA"),
                                              condition="!=")))
+
+    ## Use the listGenbiotypes and listTxbiotypes to get an overview
+    ## of available biotypes.
+    listGenebiotypes(edb)
 
   #+END_SRC
 
@@ -135,7 +135,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 *** Annotation for feature counting
 
-+ =EnsDb= databases can also provide gene model information for feature counting.
++ =EnsDb= provide gene model information for feature counting: =exonsBy= method.
 
 + _Example_: get gene models for feature counting with =summarizeOverlaps= from the
   =GenomicAlignments= package.
@@ -262,7 +262,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 + Sequence names are mapped between /styles/ using the =GenomeInfoDb= package.
 
-*** Plotting
+*** Plot gene models using =ensembldb=
 
 + =ggbio=: support for =EnsDb= objects *and filters* integrated.
 + _Example_: use =ggbio= and =ensembldb= to plot a chromosomal region.
@@ -320,6 +320,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
     Result
 #+END_SRC
 
+
 ** Building annotation databases
 
 + Ensembl, Ensembl Genomes and Ensembl Plants provide annotations for a large
@@ -358,11 +359,11 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 + Easier and faster way: create an =EnsDb= from a /gtf/ or /gff/ file.
 + /Should/ work with all gtf and gff files from Ensembl.
-+ *But*: gtf files don't provide Entrez IDs.
++ *But*: gtf files don't provide Entrez Gene IDs.
 + _Example_: create an =EnsDb= from a GTF file downloaded from ftp://ftp.ensembl.org.
 
   #+BEGIN_SRC R :eval never
-    ## Create an EnsDb from a GTF file from Ensembl.
+    ## Create an EnsDb from an Ensembl GTF file.
 
     ## Create the SQLite database file:
     ##  o Eventually define 'organism' and 'genomeVersion'.
@@ -394,27 +395,19 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
     ## Query for available Ensembl files matching homo sapiens and 83
     query(ah, pattern=c("ensembl", "83", "gtf"))
 
-    ## Select one; in this case: Tupaia_belangeri (treeshew).
-    edbSql83 <- ensDbFromAH(ah=ah["AH50415"])
+    ## Select one; in this case: Anolis carolinensis (lizard)
+    edbSql83 <- ensDbFromAH(ah=ah["AH7537"])
 
-    ## Make a package from that.
+    ## Let's see what we've got.
+    EnsDb(edbSql83)
+
+    ## Make a package.
     makeEnsembldbPackage(ensdb=edbSql83, version="1.0.0",
                          maintainer="Johannes Rainer <johannes.rainer@eurac.edu>",
                          author="J Rainer")
 
-
-
-    ## Alternatively, we could build the EnsDb from a GRanges object
-    ## providing the required columns/attributes.
-    ensGr <- ah[["AH50415"]]
-
-    ensGr
-
-    ## Create a EnsDb from that GRanges
-    ##  o have to provide organism, genome version and (Ensembl) version
-    edbSql83 <- ensDbFromGRanges(ensGr, organism=ah["AH50415"]$species, version="83",
-                                 genomeVersion=ah["AH50415"]$species)
   #+END_SRC
+
 
 ** Some internals on the filter framework
 
@@ -461,6 +454,7 @@ Clone me: http://github.com/jotsetung/Bioc2016-ensembldb.
     ## Get the PubMed ID of the reports.
     pmid(ska2mirs)
   #+END_SRC
+
 
 ** Finally...
 
