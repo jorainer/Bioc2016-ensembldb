@@ -29,7 +29,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 *** Query gene, transcript, exon information
 
 + =EnsDb= objects can be used just like =TxDb= objects.
-+ Available methods:
++ Available methods to extract data:
   - =genes=
   - =transcripts=
   - =transcriptsBy=
@@ -116,20 +116,19 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 + _Example_: use methods from the =AnnotationDbi= API to fetch annotations.
 
   #+BEGIN_SRC R
-    ## What keytypes can be used
+    ## Get all data for the gene SKA2
+    select(edb, keys="SKA2", keytype="GENENAME")
+
+    ## What 'keytypes' are supported by EnsDb?
     keytypes(edb)
 
-    ## List all tx keys (tx_id)
-    head(keys(edb, keytype="TXID"))
-
-    ## Note that we can use filters too:
-    txKeys <- keys(edb, keytype="TXID", filter=GenenameFilter("SKA2"))
-    txKeys
-
-    ## We could use these keys in the select call or alternatively
-    ## pass the filter(s) directly with argument 'key'.
+    ## Or: pass filters with keys parameter to
+    ## have more control:
+    ## All exons except exons 1 and 2 for all transcripts targeted for
+    ## nonsense mediated decay for the gene SKA2.
     select(edb, keys=list(GenenameFilter("SKA2"),
-                          TxbiotypeFilter("nonsense_mediated_decay")))
+                          TxbiotypeFilter("nonsense_mediated_decay"),
+                          ExonrankFilter(1:2, condition="!=")))
 
   #+END_SRC
 
@@ -182,83 +181,46 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
   #+END_SRC
 
-*** Get genomic or transcript sequences
+*** Integrating UCSC and Ensembl annotations
 
-+ =BSGenome= packages provide genomic (DNA) sequence.
-+ Most of the available packages are based on UCSC data:
-  - Use different genome release names than Ensembl does (e.g. /hg19/ instead of
-    /GRCh37/).
-  - Have a different chromosome naming style.
-+ We need thus another source to get sequences from.
-+ _Example_: get mRNA sequences for a gene's transcripts.
++ _Example_: How to integrate Ensembl based annotation with UCSC data.
 
-  #+BEGIN_SRC R
-    ## Get the genome and Ensembl version of the package:
-    unique(genome(edb))
-    ensemblVersion(edb)
+#+BEGIN_SRC R
+  ## Get chromosome names
+  head(seqlevels(edb))
+  ## Different from UCSC style: chr1...
 
-    ## Where to get this genome's sequence? Answer: AnnotationHub!
-    library(AnnotationHub)
-    ah <- AnnotationHub()
-    ## Search for all human Ensembl files for release 81.
-    query(ah, pattern=c("Ensembl", "homo sapiens", "81"))
+  ## Get genes on chromosome Y.
+  genes(edb, filter=SeqnameFilter("chrY"))
 
-    ## So we've got the genomic DNA sequence matching that version.
-    fafile <- ah[["AH49186"]]
+  ## Solution: change the chromosome naming style:
+  seqlevelsStyle(edb) <- "UCSC"
 
-    ## Easier/better way: use the dedicated 'getGenomeFaFile' method
-    fafile <- getGenomeFaFile(edb)
+  ## Get chromosome names
+  head(seqlevels(edb))
 
-    ## Task: get transcript sequences for SKA2
-    ## 1) Get all exons by transcript.
-    ska2Txs <- exonsBy(edb, by="tx", filter=GenenameFilter("SKA2"))
+  genes(edb, filter=SeqnameFilter("chrY"))
 
-    ## 2) Use GenomicFeatures' extractTranscriptSeqs method.
-    txSeqs <- extractTranscriptSeqs(fafile, ska2Txs)
-    txSeqs
 
-    ## Alternative: use getSeq
-    library(Biostrings)
-    getSeq(fafile, ska2Txs[[1]])
+  ## Example: get mRNA sequences for SKA2 using BSgenome.
+  library(BSgenome.Hsapiens.UCSC.hg38)  ## <- UCSC based
 
-  #+END_SRC
+  ## Get exons by transcript
+  ska2tx <- exonsBy(edb, by="tx", filter=GenenameFilter("SKA2"))
 
-+ That's convenient, especially if we're using an =EnsDb= for a non-standard
-  organism.
-+ *But*: wouldn't it be nice to use =BSGenome= packages too?
-+ _Example_: use =EnsDb= with UCSC style chromosome names.
+  ## Use GenomicFeatures' extractTranscriptSeqs
+  extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2tx)
 
-  #+BEGIN_SRC R
-    library(BSgenome.Hsapiens.UCSC.hg38)
 
-    tryCatch(
-        extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2Txs)
-    )
+  ## Alternative (preferred way):
+  seqlevelsStyle(edb) <- "Ensembl"
+  ## Using AnnotationHub:
+  ## Get the genomic fasta file matching the package's genome version:
+  faf <- getGenomeFaFile(edb)
 
-    ## Different chromosome names; can't use EnsDb/BSgenome right away.
-    head(seqlevels(BSgenome.Hsapiens.UCSC.hg38))
-    head(seqlevels(edb))
-
-    ## Solution: change the seqlevel style of the EnsDb!
-    seqlevelsStyle(edb) <- "UCSC"
-
-    head(seqlevels(edb))
-
-    ## Now we can use UCSC chromosome names:
-    genes(edb, filter=SeqnameFilter("chrY"))
-
-    ## Get the exons-by-gene for SKA2.
-    ska2Txs <- exonsBy(edb, filter=GenenameFilter("SKA2"))
-
-    ## Get the tx sequences using the BSgenome package.
-    extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2Txs)
-
-    ## Compare to the FaFile from Ensembl.
-    txSeqs
-
-    ## Change back, so we don't break following examples.
-    seqlevelsStyle(edb) <- "Ensembl"
-  #+END_SRC
+  extractTranscriptSeqs(faf, exonsBy(edb, by="tx",
+                                     filter=GenenameFilter("SKA2")))
+#+END_SRC
 
 + Sequence names are mapped between /styles/ using the =GenomeInfoDb= package.
 
@@ -357,7 +319,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 *** The easy way: from gtf and gff files
 
-+ Easier and faster way: create an =EnsDb= from a /gtf/ or /gff/ file.
++ =ensDbFromGtf=: create an =EnsDb= from a /gtf/ or /gff/ file.
 + /Should/ work with all gtf and gff files from Ensembl.
 + *But*: gtf files don't provide Entrez Gene IDs.
 + _Example_: create an =EnsDb= from a GTF file downloaded from ftp://ftp.ensembl.org.
@@ -383,7 +345,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 *** Even easier: use =AnnotationHub=
 
-+ We can build an =EnsDb= from an =AnnotationHub= resource or a =GRanges= object.
++ =ensDbFromAH=: build an =EnsDb= from an =AnnotationHub= resource.
 + _Example_: create an =EnsDb= using =AnnotationHub=.
 
   #+BEGIN_SRC R :results silent :exports code :eval never
@@ -392,14 +354,15 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
     library(AnnotationHub)
     ah <- AnnotationHub()
 
-    ## Query for available Ensembl files matching homo sapiens and 83
+    ## Query for available Ensembl gtf files for release 83.
     query(ah, pattern=c("ensembl", "83", "gtf"))
 
     ## Select one; in this case: Anolis carolinensis (lizard)
     edbSql83 <- ensDbFromAH(ah=ah["AH7537"])
 
     ## Let's see what we've got.
-    EnsDb(edbSql83)
+    db <- EnsDb(edbSql83)
+    genes(db)
 
     ## Make a package.
     makeEnsembldbPackage(ensdb=edbSql83, version="1.0.0",
@@ -407,6 +370,8 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
                          author="J Rainer")
 
   #+END_SRC
+
++ Again: no NCBI Entrez Gene IDs available.
 
 
 ** Some internals on the filter framework
