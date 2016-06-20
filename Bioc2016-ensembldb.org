@@ -10,7 +10,7 @@
 
 *Johannes Rainer* (EURAC), BioC 2016 Stanford
 
-Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
+Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 ** Introduction
 
@@ -20,7 +20,6 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
   - Designed for Ensembl annotations: *all* genes, new attributes /gene biotype/ and
     /tx biotype./
   - Allows to query specific annotations using a simple *filter framework*.
-  - Methods allow to specify the type of the returned object.
   - Interchangeable with =TxDb= objects.
 
 
@@ -38,7 +37,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
   - =cdsBy=
   - =fiveUTRsByTranscripts=
   - =threeUTRsByTranscripts=
-+ _Example_: get genes and transcripts.
++ _Example_: get all genes or transcripts.
 
   #+BEGIN_SRC R
     ## Load an EnsDb package matching Ensembl version 81
@@ -51,7 +50,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
     ## Alternatively, we can specify to return the results as DataFrame
     transcripts(edb, return.type="DataFrame")
   #+END_SRC
-+ _Example_: Use filters to fetch specific information.
++ _Example_: get all genes encoded on chromosome Y.
 
   #+BEGIN_SRC R
     ## Task: retrieve genes encoded on chromosome Y.
@@ -212,7 +211,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
   extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2tx)
 
 
-  ## Alternative (preferred way):
+  ## Alternative (preferred) way:
   seqlevelsStyle(edb) <- "Ensembl"
   ## Using AnnotationHub:
   ## Get the genomic fasta file matching the package's genome version:
@@ -285,10 +284,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 ** Building annotation databases
 
-+ Ensembl, Ensembl Genomes and Ensembl Plants provide annotations for a large
-  number of species. All follow the same database scheme.
-
-*** The hard way: with Ensembl's Perl API
+*** The hard way: using Ensembl's Perl API
 
 + Requires:
   - Ensembl Perl API (and Bioperl).
@@ -425,80 +421,6 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 
 *Thank you for your attention!*
-
-
-
-** Other packages using/extending the =ensembldb= filter framework   :ARCHIVE:
-
-+ =mirhostgenes= R-package (https://github.com/jotsetung/mirhostgenes): predicts
-  host genes (primary transcription units) of miRNAs based on genomic
-  alignment of pre-miRNAs.
-+ Imports all filter objects from =ensembldb=.
-+ _Example_: get all miRNAs potentially encoded in the same primary transcript
-  than SKA2.
-
-  #+NAME: other-packages-mirhostgene-concept
-  #+BEGIN_SRC R :results output graphics :file mirna-ska2.pdf :exports both
-    ## Plot the genomic region in which SKA2 is encoded to illustrate the
-    ## host gene prediction.
-    library(Gviz)
-    ska2 <- genes(edb, filter=gnf)
-    chromReg <- getGeneRegionTrackForGviz(edb, chromosome=seqlevels(ska2),
-                                          start=start(ska2), end=end(ska2))
-    geneTrack <- GeneRegionTrack(chromReg)
-    plotTracks(geneTrack, transcriptAnnotation="symbol")
-    ## Two miRNAs are encoded in the first exon of SKA2.
-
-  #+END_SRC
-
-  #+NAME: other-packages-mirhostgenes
-  #+BEGIN_SRC R
-    ## Load a database defining predicted miRNA host genes for miRBase 21.
-    library(mirhostgenes)
-    library(MirhostDb.Hsapiens.v81.v21)
-    mhdb <- MirhostDb.Hsapiens.v81.v21
-
-    ## Re-use the GenenameFilter
-    where(gnf, mhdb)
-
-    ## Get all mature miRNAs that could be encoded in a common primary transcript.
-    matmirnas(mhdb, filter=gnf)
-
-  #+END_SRC
-
-+ miRNA target genes: =mirtarbase= package
-  (https://github.com/jotsetung/mirtarbase), bases on data from miRTarBase
-  (http://mirtarbase.mbc.nctu.edu.tw/).
-+ All miRNA-target gene interactions (MTIs) for all species derived from
-  literature.
-+ Imports all filter classes from =ensembldb= and =mirhostgenes=.
-+ _Example_: get all miRNAs targeting SKA2 and all target genes of miR-301a-3p.
-
-  #+NAME: other-packages-mirtarbase
-  #+BEGIN_SRC R
-    ####
-    ## Load the mirtarbase library providing validated target genes
-    library(mirtarbase)
-
-    ## Target genes are categorized by 'Support type'
-    listSupportTypes(mirtarbase)
-
-    ## Re-use the GenenameFilter
-    where(gnf, mirtarbase)
-
-    ## Get all miRNA-target gene interactions for SKA2.
-    miRs <- mtis(mirtarbase, filter=gnf)
-    miRs
-
-    ## What miRNAs have been shown to regulate SKA2?
-    matmirna(miRs)
-
-  #+END_SRC
-
-+ Both packages are still in development.
-
-
-
 
 
 
