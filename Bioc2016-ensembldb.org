@@ -124,8 +124,8 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
 
     ## Or: pass filters with keys parameter to
     ## have more control:
-    ## All exons except exons 1 and 2 for all transcripts targeted for
-    ## nonsense mediated decay for the gene SKA2.
+    ## For the gene SKA2, get all exons except exons 1 and 2
+    ## for all tx targeted for nonsense mediated decay.
     select(edb, keys=list(GenenameFilter("SKA2"),
                           TxbiotypeFilter("nonsense_mediated_decay"),
                           ExonrankFilter(1:2, condition="!=")))
@@ -190,7 +190,7 @@ Clone me @github: http://github.com/jotsetung/Bioc2016-ensembldb.
   head(seqlevels(edb))
   ## Different from UCSC style: chr1...
 
-  ## Get genes on chromosome Y.
+  ## Get genes on chromosome Y, UCSC style.
   genes(edb, filter=SeqnameFilter("chrY"))
 
   ## Solution: change the chromosome naming style:
