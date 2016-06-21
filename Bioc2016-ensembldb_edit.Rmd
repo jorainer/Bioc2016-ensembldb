@@ -21,18 +21,16 @@ ul > li:before {
 
 **Johannes Rainer** (EURAC), BioC 2016 Stanford
 
-Clone me: <http://github.com/jotsetung/Bioc2016-ensembldb>.
+Clone me @GitHub: <http://github.com/jotsetung/Bioc2016-ensembldb>.
 
 ## Introduction
 
 * `TxDb` objects from `GenomicFeatures` provide gene model annotations.
 * `ensembldb` package defines `EnsDb` class also providing gene models.
 * `EnsDB` object/database:
-    +   Designed for Ensembl annotations: new attributes *gene biotype* and *tx biotype.*
+    +   Designed for Ensembl annotations: **all** genes, new attributes *gene biotype* and *tx biotype.*
     +   Allows to query specific annotations using a simple **filter framework**.
-    +   Methods allow to specify the type of the returned object.
     +   Interchangeable with `TxDb` objects.
-    +   Support `AnnotationDbi`'s `select` method.
 
 
 ## Usage: Query gene, transcript, exon information
@@ -51,7 +49,7 @@ Clone me: <http://github.com/jotsetung/Bioc2016-ensembldb>.
 
 ----
 
-**Example**: get gene and transcript data
+**Example**: get all genes or transcripts.
 
 ```{r message=FALSE}
 ## Load an EnsDb package matching Ensembl version 81
@@ -67,23 +65,23 @@ genes(edb)
 ... continued.
 
 ```{r message=FALSE}
-## Alternatively, we can specify to return the results as DataFrame
+## Alternatively, we can specify to return the results as a DataFrame
 transcripts(edb, return.type="DataFrame")
 ```
 
 ----
 
-**Example**: Use filters to fetch specific information.
+**Example**: get all genes encoded on chromosome Y.
 
 ```{r }
-## Task: retrieve genes encoded on chromosome Y.
+## Define a chromsome filter for Y.
 sf <- SeqnameFilter("Y")
 
 ## Retrieve the data
 genes(edb, filter=sf)
 ```
 
-## Supported filters
+## Available filters
 
 * For genes:
     +   `GeneidFilter`
@@ -97,7 +95,7 @@ genes(edb, filter=sf)
     +   `ExonidFilter`
     +   `ExonrankFilter`
 
-## Supported filters
+## Available filters
 
 - _Generic_ filters:
     -   `SeqnameFilter`
@@ -106,6 +104,7 @@ genes(edb, filter=sf)
     -   `SeqendFilter`
     -   `GRangesFilter`: condition can be _within_ or _overlapping_.
 
+- Use of filters can speed up queries.
 - Multiple filters can be combined with a logical _AND_.
 - Each filter supports 1:n values and also a _like_ condition.
 
@@ -121,9 +120,45 @@ grf <- GRangesFilter(GRanges(17, IRanges(59000000, 59200000)), condition="within
 genes(edb, filter=list(grf, GenebiotypeFilter(c("miRNA", "snRNA"), condition="!=")))
 ```
 
+
+## `ensembldb` and the `AnnotationDbi` API
+
+-   `AnnotationDbi` methods `columns`, `keys`, `keytypes`, `mapIds` and `select`.
+-   `EnsDb` support all these methods **with filters**.
+-   __Example__: use `AnnotationDbi` API methods to fetch annotation.
+
+```{r }
+## Get all data for the gene SKA2
+select(edb, keys="SKA2", keytype="GENENAME")
+```
+
+---- 
+
+... continued.
+
+```{r }
+## What keytypes can be used?
+keytypes(edb)
+
+```
+
+----
+
+- Use filters to have more control of the query.
+
+```{r }
+## For the gene SKA2, get all exons except exon 1 and 2 for all tx targeted
+## for nonsense mediated decay.
+select(edb, keys=list(GenenameFilter("SKA2"),
+                      ExonrankFilter(1:2, condition="!="),
+                      TxbiotypeFilter("nonsense_mediated_decay")))
+```
+
+
+
 ## Annotation for feature counting
 
--   `EnsDb` databases provide gene model information for feature counting.
+-   `EnsDb` provide gene model information for feature counting: `exonsBy`.
 -   __Example__: get gene models for feature counting with `summarizeOverlaps` from the `GenomicAlignments` package.
 
 ```{r eval=FALSE}
@@ -160,68 +195,18 @@ bamf <- dir("data/bam", pattern=".bam$", full.names=TRUE)
 cnts <- featureCounts(files=bamf, annot.ext=saf, isPairedEnd=TRUE, nthreads=1)
 ```
 
-## Get genomic or transcript sequences
+## Integrating UCSC and Ensembl annotations
 
--   `BSGenome` packages provide genomic (DNA) sequence.
--   Most of the available packages are based on UCSC data: 
-    - Use different genome release names than Ensembl does (e.g. *hg19* instead of *GRCh37*).
-    - Have a different chromosome naming style.
--   We need thus another source to get sequences from.
-
-----
-
--   __Example__: get mRNA sequences for a gene's transcripts.
-
-```{r message=FALSE, results="hold"}
-##  Get the genome version of the package:
-unique(genome(edb))
-ensemblVersion(edb)
-
-## Where to get this genome's sequence? -> AnnotationHub
-library(AnnotationHub)
-ah <- AnnotationHub()
-## Search for all human Ensembl files for release 81.
-query(ah, pattern=c("Ensembl", "homo sapiens", "81"))
-
-fafile <- ah[["AH49186"]]
-
-```
-
-
-----
-
-... continued.
+-   UCSC and Ensembl use different chromosome name formats.
+-   __Example__: How to integrate Ensembl based annotations with UCSC data.
 
 ```{r message=FALSE}
-## Easier way: use the dedicated getGenomeFaFile method
-fafile <- getGenomeFaFile(edb)
-
-## Task: get transcript sequences for SKA2
-## 1) Get all exons by transcript.
-ska2Txs <- exonsBy(edb, by="tx", filter=GenenameFilter("SKA2"))
-
-## 2) Use extractTranscriptSeqs from GenomicFeatures; alternative: getSeq from Biostrings
-extractTranscriptSeqs(fafile, ska2Txs)
-```
-
--   That's convenient, especially if we're using an `EnsDb` for a non-standard
-    organism.
-
-----
-
--   **But**: wouldn't it be nice to use `BSGenome` packages too?
--   __Example__: use `EnsDb` with UCSC style chromosome names.
-
-```{r message=FALSE}
-library(BSgenome.Hsapiens.UCSC.hg38)
-## Different chromosome names; can't use EnsDb/BSgenome right away.
-head(seqlevels(BSgenome.Hsapiens.UCSC.hg38))
+## Get chromosome names; they are different from UCSC style (chr1, ...)
 head(seqlevels(edb))
 
-## Solution: change the seqlevel style
-seqlevelsStyle(edb) <- "UCSC"
-head(seqlevels(edb))
+## Get genes on chromsome Y, UCSC style:
 genes(edb, filter=SeqnameFilter("chrY"))
+
 ```
 
 
@@ -230,25 +215,36 @@ genes(edb, filter=SeqnameFilter("chrY"))
 ... continued.
 
 ```{r message=FALSE}
-## Get the exons-by-gene for SKA2
-ska2Txs <- exonsBy(edb, filter=GenenameFilter("SKA2"))
+## Solution: change the chromosome naming style of the EnsDb:
+seqlevelsStyle(edb) <- "UCSC"
 
-## Get the tx sequences using the BSgenome package.
-extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2Txs)
+genes(edb, filter=SeqnameFilter("chrY"))
 
 ```
 
--   Sequence names are mapped between *styles* using the `GenomeInfoDb` package.
+----
 
-```{r echo=FALSE, results='hide'}
-## Change back, so we don't break following examples.
+-   __Example__: get SKA2 tx sequences using BSgenome.
+
+```{r message=FALSE, warning=FALSE}
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+ska2tx <- exonsBy(edb, by="tx", filter=GenenameFilter("SKA2"))
+extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2tx)
+
+```
+
+- __Preferred way__: get the `FaFile` corresponding to the correct genome build using the dedicated `getGenomeFaFile` method.
+
+```{r message=FALSE, warning=FALSE}
+faf <- getGenomeFaFile(edb)
 seqlevelsStyle(edb) <- "Ensembl"
+extractTranscriptSeqs(faf, exonsBy(edb, by="tx", filter=GenenameFilter("SKA2")))
 ```
-
 
 ## Plotting
 
--   `ggbio`: we can directly pass `EnsDb` objects and filters to the functions.
+-   `ggbio`: support for `EnsDb` objects __and filters__ integrated.
 -   __Example__: use `ggbio` and `ensembldb` to plot a chromosomal region.
 
 ```{r ggbio-plot, fig.align='center', width=8, height=3.5, message=FALSE, warning=FALSE}
@@ -276,30 +272,6 @@ plotTracks(list(GenomeAxisTrack(), GeneRegionTrack(grt)), transcriptAnnotation="
            chromosome=seqlevels(ska2))
 ```
 
-## `ensembldb` and the `AnnotationDbi` API
-
--   `AnnotationDbi` methods `columns`, `keys`, `keytypes`, `mapIds` and `select`.
--   `EnsDb` support all these methods which can be combined with *filters*.
--   __Example__: use `AnnotationDbi` API methods to fetch annotation.
-
-```{r }
-## What keytypes can be used
-keytypes(edb)
-
-## List all tx keys (tx_id)
-head(keys(edb, keytype="TXID"))
-
-## Note that we can use filters too:
-keys(edb, keytype="TXID", filter=GenenameFilter("SKA2"))
-```
-
-----
-
-```{r }
-## We could use these keys in the select call or alternatively
-## pass the filter(s) directly with argument 'key'.
-select(edb, keys=list(GenenameFilter("SKA2"), TxbiotypeFilter("nonsense_mediated_decay")))
-```
 
 ## The `ensembldb` shiny app
 
@@ -316,9 +288,6 @@ Result
 
 
 ## Building annotation databases
-
--   Ensembl, Ensembl Genomes and Ensembl Plants provide annotations for a large
-    number of species. All follow the same database scheme.
 
 ### The hard way: with Ensembl's Perl API
 
@@ -379,13 +348,13 @@ head(genes(dogDb, filter=SeqnameFilter("X")))
 
 ### Even easier: use `AnnotationHub`
 
--   We can build an `EnsDb` from an `AnnotationHub` or a `GRanges` object.
+-   We can build an `EnsDb` from an `AnnotationHub` object.
 -   __Example__: create an `EnsDb` using `AnnotationHub`.
 
 ```{r message=FALSE}
 library(AnnotationHub)
 ah <- AnnotationHub()
-## Query for available Ensembl files matching homo sapiens and 83
+## Query for available Ensembl gtf files for release 83
 query(ah, pattern=c("ensembl", "83", "gtf"))
 ```
 
@@ -394,20 +363,12 @@ query(ah, pattern=c("ensembl", "83", "gtf"))
 
 ... continued.
 
-```{r message=FALSE, results='hide'}
-## Select one; in this case: Tupaia_belangeri (treeshew).
-edbSql83 <- ensDbFromAH(ah=ah["AH50415"])
+```{r message=FALSE}
+## Select one; in this case: Anolis carolinensis (lizard).
+edbSql83 <- ensDbFromAH(ah=ah["AH7537"])
+db <- EnsDb(edbSql83)
 
-## Make a package from that.
-makeEnsembldbPackage(ensdb=edbSql83, version="1.0.0", author="J Rainer", 
-                     maintainer="Johannes Rainer <johannes.rainer@eurac.edu>")
-
-## Alternatively, we could build the EnsDb from a GRanges object providing the required 
-## columns/attributes.
-ensGr <- ah[["AH50415"]]
-## Create a EnsDb from that GRanges
-edbSql83 <- ensDbFromGRanges(ensGr, organism=ah["AH50415"]$species, version="83", 
-                             genomeVersion=ah["AH50415"]$species)
+genes(db)
 ```
 
 ## Some internals on the filter framework
@@ -434,6 +395,27 @@ where(gnf, edb)
 -   `where` method is used to build the *where* condition of the SQL call.
 -   Implementing these methods for other database objects enables reuse of the
     classes in other packages.
+-   __Example__: implementation in the `mirtarbase` apcakge.
+    - https://github.com/jotsetung/mirtarbase
+    - Bases on the miRTarBase data: validated miRNA target genes (http://mirtarbase.mbc.nctu.edu.tw/).
+
+```{r message=FALSE}
+library(mirtarbase)
+where(gnf, mirtarbase)
+```
+
+----
+
+... continued.
+
+```{r }
+## Get all miRNAs that have been reported to regulate SKA2.
+ska2mirs <- mtis(mirtarbase, filter=gnf)
+ska2mirs
+
+## Get the ID of the publications.
+pmid(ska2mirs)
+```
 
 ##  {.flexbox .vcenter}
 
