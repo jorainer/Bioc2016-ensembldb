@@ -38,21 +38,12 @@ Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
   - =fiveUTRsByTranscripts=
   - =threeUTRsByTranscripts=
 
-+ _Example_: get all genes' annotations.
++ _Example_: get all genes encoded on chromosome Y.
 
   #+BEGIN_SRC R
     ## Load an EnsDb package matching Ensembl version 81
     library(EnsDb.Hsapiens.v81)
     edb <- EnsDb.Hsapiens.v81
-
-    ## Now just get all genes
-    genes(edb)
-
-  #+END_SRC
-
-+ _Example_: get all genes encoded on chromosome Y.
-
-  #+BEGIN_SRC R
     ## Retrieve genes encoded on chromosome Y.
     ## Create a filter object
     sf <- SeqnameFilter("Y")
@@ -71,13 +62,14 @@ Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
   + =GenenameFilter=
   + =EntrezidFilter=
   + =GenebiotypeFilter=
+  + TODO: =SymbolFilter=
 - For transcripts:
   + =TxidFilter=
   + =TxbiotypeFilter=
 - For exons:
   + =ExonidFilter=
   + =ExonrankFilter=
-- /Generic/ filters:
+- Based on chromosomal coordinates:
   + =SeqnameFilter=
   + =SeqstrandFilter=
   + =SeqstartFilter=
@@ -362,6 +354,10 @@ Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 
 *Thank you for your attention!*
+
+
+
+
 
 
 

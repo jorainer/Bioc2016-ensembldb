@@ -23,10 +23,13 @@
 #+LATEX_CLASS: beamer
 #+LATEX_CLASS_OPTIONS: [presentation,smaller]
 #+BEAMER_THEME: default
+#+BEAMER_COLOR_THEME: eurac
 #+BEAMER_INNER_THEME: circles
 #+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
 #+OPTIONS: toc:nil
 #+OPTIONS: H:2
+#+OPTIONS: email:t
+#+OPTIONS: author:t
 
 
 * Building and Using Ensembl-based Annotation Packages with =ensembldb=
@@ -84,10 +87,11 @@
 
 ** Available filters
 
-- For *genes*: =GeneidFilter=, =GenenameFilter=, =EntrezidFilter= and =GenebiotypeFilter.=
+- For *genes*: =GeneidFilter=, =GenenameFilter=, =EntrezidFilter= and =GenebiotypeFilter=;
+  in future: =SymbolFilter=.
 - For *transcripts*: =TxidFilter= and =TxbiotypeFilter.=
 - For *exons*: =ExonidFilter= and =ExonrankFilter.=
-- /Generic/ filters: =SeqnameFilter=, =SeqstrandFilter=, =SeqstartFilter=, =SeqendFilter= and
+- Based on chromosomal coordinates: =SeqnameFilter=, =SeqstrandFilter=, =SeqstartFilter=, =SeqendFilter= and
   =GRangesFilter=.
 - Multiple filters are combined with a logical /AND/.
 - Each filter supports 1:n values and also a /like/ condition.
@@ -252,17 +256,10 @@
 
 ** The =ensembldb= shiny app
 
-+ The =ensembldb= shiny app allows interactive annotation look-up.
-+ _Example_: search for a gene using the shiny app and return the result to R.
++ The =ensembldb= shiny app allows interactive annotation look-up: =runEnsDbApp()=.
 
-  #+BEGIN_SRC R :eval never :ravel eval=FALSE
-    ## Run the shiny app:
-    Result <- runEnsDbApp()
-
-    ## Inspect the result:
-    Result
-#+END_SRC
-
+#+ATTR_LATEX: :center :placement [H] :width 12cm
+[[file:ensembldb-shiny.png]]
 
 ** Building annotation databases
 
