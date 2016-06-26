@@ -64,6 +64,7 @@ Clone me @GitHub: https://github.com/jotsetung/Bioc2016-ensembldb.
 
 - Multiple filters are combined with a logical /AND/.
 - Each filter supports 1:n values and also a /like/ condition.
+
 - _Example_: combine filters.
 
   #+BEGIN_SRC R
@@ -363,48 +364,6 @@ Clone me @GitHub: https://github.com/jotsetung/Bioc2016-ensembldb.
 
 
 
-
-** Some internals on the filter framework                          :ARCHIVE:
-
-+ How does the filter framework work?
-+ _Example_: the =where= method of a =GenenameFilter=.
-
-  #+BEGIN_SRC R
-    ## Create a simple GenenameFilter
-    gnf <- GenenameFilter("SKA2")
-
-    ## The 'where' condition for the SQL call
-    where(gnf)
-
-    ## These are conditional on the database object
-    where(gnf, edb)
-  #+END_SRC
-
-+ =where= method is used to build the /where/ condition of the SQL call.
-+ Implementing this method for other database objects enables reuse of the
-  classes in other packages.
-+ _Example_: implementation in the =mirtarbase= package.
-  - https://github.com/jotsetung/mirtarbase
-  - Bases on the miRTarBase data: validated miRNA target genes
-    (http://mirtarbase.mbc.nctu.edu.tw/).
-
-  #+BEGIN_SRC R
-    ## Load the library.
-    library(mirtarbase)
-
-    ## where condition for the GenenameFilter in the mirtarbase:
-    where(gnf, mirtarbase)
-
-    ## Get all miRNAs that have been reported to regulate SKA2
-    ska2mirs <- mtis(mirtarbase, filter=gnf)
-    ska2mirs
-
-    ## Get the mature miRNA ID
-    matmirna(ska2mirs)
-
-    ## Get the PubMed ID of the reports.
-    pmid(ska2mirs)
-  #+END_SRC
 
 
 
