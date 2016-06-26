@@ -1,0 +1,355 @@
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orgheadline15">1. Building and Using Ensembl-based Annotation Packages with <code>ensembldb</code></a>
+<ul>
+<li><a href="#orgheadline1">1.1. Introduction</a></li>
+<li><a href="#orgheadline9">1.2. Usage</a>
+<ul>
+<li><a href="#orgheadline2">1.2.1. Query gene, transcript, exon information</a></li>
+<li><a href="#orgheadline3">1.2.2. Available filters</a></li>
+<li><a href="#orgheadline4">1.2.3. <code>ensembldb</code> and the <code>AnnotationDbi</code> API</a></li>
+<li><a href="#orgheadline5">1.2.4. Annotation for feature counting</a></li>
+<li><a href="#orgheadline6">1.2.5. Integrating UCSC and Ensembl annotations</a></li>
+<li><a href="#orgheadline7">1.2.6. Plotting support</a></li>
+<li><a href="#orgheadline8">1.2.7. The <code>ensembldb</code> shiny app</a></li>
+</ul>
+</li>
+<li><a href="#orgheadline13">1.3. Building annotation databases</a>
+<ul>
+<li><a href="#orgheadline10">1.3.1. The easiest way: with <code>AnnotationHub</code></a></li>
+<li><a href="#orgheadline11">1.3.2. The easy way: from gtf and gff files</a></li>
+<li><a href="#orgheadline12">1.3.3. The hard way: using Ensembl's Perl API</a></li>
+</ul>
+</li>
+<li><a href="#orgheadline14">1.4. Finally&#x2026;</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+# Building and Using Ensembl-based Annotation Packages with `ensembldb`<a id="orgheadline15"></a>
+
+**Johannes Rainer** (EURAC), BioC 2016, Stanford
+
+Clone me @GitHub: <https://github.com/jotsetung/Bioc2016-ensembldb>.
+
+## Introduction<a id="orgheadline1"></a>
+
+-   `TxDb` objects from `GenomicFeatures` provide gene model annotations:
+    -   Used for RNA-seq, CHiP-seq, etc.
+
+-   `ensembldb` package defines the `EnsDb` class:
+    -   Same functionality than `TxDb` objects, **plus**:
+    -   Designed for Ensembl: **all** genes, attributes *gene biotype* and *tx biotype.*
+    -   Allows to query specific annotations using a simple **filter framework**.
+
+## Usage<a id="orgheadline9"></a>
+
+### Query gene, transcript, exon information<a id="orgheadline2"></a>
+
+-   Available methods to extract data:
+    -   `genes`
+    -   `transcripts`
+    -   `transcriptsBy`
+    -   `exons`
+    -   `exonsBy`
+    -   `cdsBy`
+    -   `fiveUTRsByTranscripts`
+    -   `threeUTRsByTranscripts`
+
+-   <span class="underline">Example</span>: get all genes encoded on chromosome Y.
+
+```{r }
+## Load an EnsDb package matching Ensembl version 81
+library(EnsDb.Hsapiens.v81)
+edb <- EnsDb.Hsapiens.v81
+## Retrieve genes encoded on chromosome Y.
+## Create a filter object
+sf <- SeqnameFilter("Y")
+
+## Retrieve the data.
+genes(edb, filter=sf)
+```
+
+-   Use of filters can speed up queries.
+
+### Available filters<a id="orgheadline3"></a>
+
+-   For genes: `GeneidFilter`, `GenenameFilter`, `EntrezidFilter`, `GenebiotypeFilter`,
+    (`SymbolFilter).`
+-   For transcripts: `TxidFilter`, `TxbiotypeFilter`
+-   For exons: `ExonidFilter`, `ExonrankFilter`
+-   Based on chromosomal coordinates: `SeqnameFilter`, `SeqstrandFilter`,
+    `SeqstartFilter`, `SeqendFilter`, `GRangesFilter`: condition can be *within* or
+    *overlapping*.
+
+-   Multiple filters are combined with a logical *AND*.
+-   Each filter supports 1:n values and also a *like* condition.
+
+-   <span class="underline">Example</span>: combine filters.
+
+```{r }
+## Example for a GRangesFilter:
+grf <- GRangesFilter(GRanges(17, IRanges(59000000, 59200000)),
+		     condition="within")
+
+## Get all genes encoded in this region.
+genes(edb, filter=grf, columns=c("gene_name", "gene_biotype"))
+
+## Combine with a GenebiotypeFilter to get all genes in the region
+## EXCEPT pre-miRNAs and snRNAs.
+genes(edb, filter=list(grf,
+		       GenebiotypeFilter(c("miRNA", "snRNA"),
+					 condition="!=")))
+```
+
+### `ensembldb` and the `AnnotationDbi` API<a id="orgheadline4"></a>
+
+-   `EnsDb` support all `AnnotationDbi` methods **with filters**.
+-   <span class="underline">Example</span>: use `AnnotationDbi`'s `select` method to fetch annotations.
+
+```{r }
+## Get all data for the gene SKA2
+Res <- select(edb, keys="SKA2", keytype="GENENAME")
+head(Res, n=3)
+
+## Or: pass filters with keys parameter to have more control:
+## For the gene SKA2: get all exons except exons 1 and 2
+## for all tx targeted for nonsense mediated decay.
+select(edb, keys=list(GenenameFilter("SKA2"),
+		      TxbiotypeFilter("nonsense_mediated_decay"),
+		      ExonrankFilter(1:2, condition="!=")))
+```
+
+### Annotation for feature counting<a id="orgheadline5"></a>
+
+-   `exonsBy`: provide gene model information for feature counting.
+
+-   <span class="underline">Example</span>: feature counting using `GenomicAlignments`' `summarizeOverlaps` method.
+
+```{r eval=FALSE}
+## Get exons by gene, for chromosomes 1:22, X, Y, excluding also locus reference
+## genomic genes (LRG)
+exns <- exonsBy(edb, by="gene", filter=list(SeqnameFilter(c(1:22, "X", "Y")),
+					    GeneidFilter("ENSG%", "like")))
+exns
+
+## Load the required libraries.
+library(GenomicAlignments)
+library(BiocParallel)
+
+## Get the Bam files.
+bfl <- BamFileList(dir("data/bam", pattern=".bam$", full.names=TRUE),
+		   asMates=TRUE, yieldSize=1e+6, obeyQname=TRUE)
+## Define a ScanBamParam with a mapping quality filter.
+sbp <- ScanBamParam(mapqFilter=30)
+
+## Do the gene counting
+geneCounts <- bplapply(bfl, FUN=summarizeOverlaps, features=exns,
+		       mode="IntersectionStrict", ignore.strand=TRUE,
+		       singleEnd=FALSE, fragments=TRUE, param=sbp)
+geneCounts <- do.call(cbind, geneCounts)
+```
+
+-   <span class="underline">Example</span>: gene models for `Rsubread`'2 `featureCount` function.
+
+```{r eval=FALSE}
+## Convert the exon list to SAF format
+saf <- toSAF(exns)
+
+head(saf)
+
+####
+##  Do the feature counting using the Rsubread package
+library(Rsubread)
+bamf <- dir("data/bam", pattern=".bam$", full.names=TRUE)
+cnts <- featureCounts(files=bamf, annot.ext=saf, isPairedEnd=TRUE, nthreads=1)
+```
+
+### Integrating UCSC and Ensembl annotations<a id="orgheadline6"></a>
+
+-   UCSC and Ensembl use different chromosome naming styles.
+-   <span class="underline">Example</span>: How to integrate Ensembl based annotation with UCSC data?
+
+```{r }
+## Get chromosome names
+head(seqlevels(edb))
+## Different from UCSC style: chr1...
+
+## Get genes on chromosome Y, UCSC style.
+genes(edb, filter=SeqnameFilter("chrY"))
+
+## Solution: change the chromosome naming style:
+seqlevelsStyle(edb) <- "UCSC"
+
+## Get chromosome names
+head(seqlevels(edb))
+
+genes(edb, filter=SeqnameFilter("chrY"))
+
+
+## Use case:
+## Get mRNA sequences for SKA2 using BSgenome.
+library(BSgenome.Hsapiens.UCSC.hg38)  ## <- UCSC based
+
+## Get exons by transcript
+ska2tx <- exonsBy(edb, by="tx", filter=GenenameFilter("SKA2"))
+
+## Use GenomicFeatures' extractTranscriptSeqs
+head(extractTranscriptSeqs(BSgenome.Hsapiens.UCSC.hg38, ska2tx))
+
+
+## Alternative (preferred) way:
+seqlevelsStyle(edb) <- "Ensembl"
+## Using AnnotationHub:
+## Get the genomic fasta file matching the package's genome version:
+faf <- getGenomeFaFile(edb)
+extractTranscriptSeqs(faf, exonsBy(edb, by="tx",
+				   filter=GenenameFilter("SKA2")))
+```
+
+-   Sequence names are mapped between *styles* using the `GenomeInfoDb` package.
+
+### Plotting support<a id="orgheadline7"></a>
+
+-   `ggbio` and `Gviz`: plot data along genomic coordinates.
+
+-   `ggbio`: support for `EnsDb` objects **and filters** integrated.
+-   <span class="underline">Example</span>: use `ggbio` and `ensembldb` to plot a chromosomal region.
+
+```{r }
+library(ggbio)
+
+## Plot the SKA2 gene model by passing a filter to the function.
+autoplot(edb, GenenameFilter("SKA2"))
+
+## To plot all genes in the region:
+## Get the gene SKA2
+ska2 <- genes(edb, filter=GenenameFilter("SKA2"))
+strand(ska2) <- "*"
+
+## Plot the genomic region; we're using the gene name as labels for the transcripts.
+autoplot(edb, GRangesFilter(ska2, condition="overlapping"),
+	 names.expr="gene_name")
+```
+
+-   `Gviz`: `getGeneRegionTrackForGviz` method to extract `Gviz`-formatted data.
+-   <span class="underline">Example</span>: plot genes encoded on a chromosomal region using `Gviz`.
+
+```{r }
+library(Gviz)
+## Get all genes in the same genomic region
+ska2 <- genes(edb, filter=GenenameFilter("SKA2"))
+strand(ska2) <- "*"
+
+grt <- getGeneRegionTrackForGviz(edb, filter=GRangesFilter(ska2,
+							   condition="overlapping"))
+geneTrack <- GeneRegionTrack(grt)
+## Plot the chromosomal region.
+plotTracks(list(GenomeAxisTrack(), geneTrack), transcriptAnnotation="symbol")
+```
+
+### The `ensembldb` shiny app<a id="orgheadline8"></a>
+
+-   The `ensembldb` shiny app allows interactive annotation look-up.
+-   <span class="underline">Example</span>: search for a gene using the shiny app and return the result to R.
+
+```{r eval=FALSE}
+## Run the shiny app:
+Result <- runEnsDbApp()
+
+## Inspect the result:
+Result
+```
+
+## Building annotation databases<a id="orgheadline13"></a>
+
+### The easiest way: with `AnnotationHub`<a id="orgheadline10"></a>
+
+-   `ensDbFromAH`: build an `EnsDb` database from an `AnnotationHub` (gtf) resource.
+-   <span class="underline">Example</span>: create an `EnsDb` using `AnnotationHub`.
+
+```{r }
+library(AnnotationHub)
+ah <- AnnotationHub()
+
+## Query for available Ensembl gtf files for release 83.
+query(ah, pattern=c("ensembl", "release-83", "gtf"))
+
+## Select one; in this case: Anolis carolinensis (lizard)
+edbSql83 <- ensDbFromAH(ah=ah["AH7537"])
+
+## Let's see what we've got.
+db <- EnsDb(edbSql83)
+genes(db, filter=SeqnameFilter("2"))
+
+## Make a package.
+makeEnsembldbPackage(ensdb=edbSql83, version="1.0.0",
+		     maintainer="Johannes Rainer <johannes.rainer@eurac.edu>",
+		     author="J Rainer")
+```
+
+-   **But**: no NCBI Entrez Gene IDs available.
+
+### The easy way: from gtf and gff files<a id="orgheadline11"></a>
+
+-   `ensDbFromGtf`: create an `EnsDb` from a *gtf* or *gff* file.
+-   *Should* work with all gtf and gff files from Ensembl.
+-   **But**: gtf files don't provide NCBI Entrez Gene IDs.
+-   <span class="underline">Example</span>: create an `EnsDb` from a GTF file downloaded from <ftp://ftp.ensembl.org>.
+
+```{r }
+## Create an EnsDb from an Ensembl GTF file.
+
+## Create the SQLite database file:
+##  o Eventually define 'organism' and 'genomeVersion'.
+##  o Needs also an internet connection to retrieve the 'seqlengths'.
+edbSql <- ensDbFromGtf("data/gtf/Canis_familiaris.CanFam3.1.84.gtf.gz")
+
+edbSql
+
+## Use the makeEnsembldbPackage to create a package, or load and use it.
+dogDb <- EnsDb(edbSql)
+
+dogDb
+
+## Fully functional, except we don't have Entrez gene ids.
+head(genes(dogDb, filter=SeqnameFilter("X")))
+```
+
+### The hard way: using Ensembl's Perl API<a id="orgheadline12"></a>
+
+-   Requires:
+    -   Perl.
+    -   Ensembl Perl API (and Bioperl).
+
+-   `fetchTablesFromEnsembl` to fetch the annotations from Ensembl.
+-   `makeEnsemblSQLiteFromTables` to create the SQLite database from the tables.
+-   `makeEnsembldbPackage` to create a package containing and providing the
+    annotation.
+-   <span class="underline">Example</span>: create an `EnsDb` using the Perl API.
+
+```{r eval=FALSE}
+## Create an EnsDb using the Ensembl Perl API:
+
+## This takes quite some time...
+fetchTablesFromEnsembl(version="81",
+		       ensemblapi="/Users/jo/ensembl/81/API/ensembl/modules",
+		       species="dog")
+
+## Create an SQLite database from the generated txt files
+dbf <- makeEnsemblSQLiteFromTables()
+
+## Finally, create the package
+makeEnsembldbPackage(ensdb=dbf, version="1.0.0",
+		     maintainer="Johannes Rainer <johannes.rainer@eurac.edu>",
+		     author="Johannes Rainer")
+```
+
+## Finally&#x2026;<a id="orgheadline14"></a>
+
+**Thank you for your attention!**

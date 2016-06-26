@@ -4,6 +4,7 @@ This repository provides the code and slides used for the =ensembldb=
 demonstration/presentation at the Bioconductor conference *BioC 2016* in Stanford.
 
 The [[file:./Bioc2016-ensembldb.org]] is the /main/ presentation file (Emacs org-mode
-file). It was exported as an /Rmd/ file and then manually edited to fix remaining
-layout problems resulting in the [[file:./Bioc2016-ensembldb_edit.Rmd]] file.
+file). It was exported as to an Rmd file ( [[file:./Bioc2016-ensembldb.Rmd]]) as
+well as into an pdf file. The /_beamer/ file represents a manually changed version
+of the original /org/ file to fit the content (more or less) onto slides.
 
