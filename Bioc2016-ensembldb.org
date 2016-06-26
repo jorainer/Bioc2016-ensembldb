@@ -3,23 +3,20 @@
 #+EMAIL: johannes.rainer@eurac.edu
 #+DATE: June 26, 2016
 #+SETUPFILE: orgsetup.org
-#+STARTUP: overview
-#+STARTUP: indent
 
 * Building and Using Ensembl-based Annotation Packages with =ensembldb=
 
 *Johannes Rainer* (EURAC), BioC 2016, Stanford
 
-Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
+Clone me @GitHub: https://github.com/jotsetung/Bioc2016-ensembldb.
 
 ** Introduction
 
 + =TxDb= objects from =GenomicFeatures= provide gene model annotations:
   - Used for RNA-seq, CHiP-seq, etc.
-  - Providing mostly UCSC annotations.
 
 + =ensembldb= package defines the =EnsDb= class:
-  - Same functionality as =TxDb= objects, *plus*:
+  - Same functionality than =TxDb= objects, *plus*:
   - Designed for Ensembl: *all* genes, attributes /gene biotype/ and /tx biotype./
   - Allows to query specific annotations using a simple *filter framework*.
 
@@ -57,24 +54,13 @@ Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 *** Available filters
 
-- For genes:
-  + =GeneidFilter=
-  + =GenenameFilter=
-  + =EntrezidFilter=
-  + =GenebiotypeFilter=
-  + TODO: =SymbolFilter=
-- For transcripts:
-  + =TxidFilter=
-  + =TxbiotypeFilter=
-- For exons:
-  + =ExonidFilter=
-  + =ExonrankFilter=
-- Based on chromosomal coordinates:
-  + =SeqnameFilter=
-  + =SeqstrandFilter=
-  + =SeqstartFilter=
-  + =SeqendFilter=
-  + =GRangesFilter=: condition can be /within/ or /overlapping/.
+- For genes: =GeneidFilter=, =GenenameFilter=, =EntrezidFilter=, =GenebiotypeFilter=,
+  (=SymbolFilter).=
+- For transcripts: =TxidFilter=, =TxbiotypeFilter=
+- For exons: =ExonidFilter=, =ExonrankFilter=
+- Based on chromosomal coordinates: =SeqnameFilter=, =SeqstrandFilter=,
+  =SeqstartFilter=, =SeqendFilter=, =GRangesFilter=: condition can be /within/ or
+  /overlapping/.
 
 - Multiple filters are combined with a logical /AND/.
 - Each filter supports 1:n values and also a /like/ condition.
@@ -354,6 +340,9 @@ Clone me @GitHub: http://github.com/jotsetung/Bioc2016-ensembldb.
 
 
 *Thank you for your attention!*
+
+
+
 
 
 

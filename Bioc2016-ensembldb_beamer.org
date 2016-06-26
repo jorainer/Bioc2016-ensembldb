@@ -38,7 +38,6 @@
 
 + =TxDb= objects from =GenomicFeatures= provide gene model annotations:
   - Used for RNA-seq, CHiP-seq, etc.
-  - Providing mostly UCSC annotations.
 
 + =ensembldb= package defines the =EnsDb= class:
   - Same functionality as =TxDb= objects, *plus*:
@@ -60,25 +59,13 @@
 
 ** Query gene, transcript, exon information
 
-+ _Example_: get all genes' annotations.
-
-#+BEGIN_SRC R
-  ## Load an EnsDb package matching Ensembl version 81
-  library(EnsDb.Hsapiens.v81)
-  edb <- EnsDb.Hsapiens.v81
-
-  ## Now just get all genes
-  genes(edb)
-#+END_SRC
-
-** Query gene, transcript, exon information
-
 + _Example_: get all genes encoded on chromosome Y.
 
 #+BEGIN_SRC R
+  library(EnsDb.Hsapiens.v81)
+  edb <- EnsDb.Hsapiens.v81
   ## Create a filter object
   sf <- SeqnameFilter("Y")
-
   ## Retrieve the data.
   genes(edb, filter=sf)
 #+END_SRC

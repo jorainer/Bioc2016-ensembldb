@@ -37,3 +37,5 @@
 
 # #+LATEX_HEADER: \newminted{R}{fontsize=\footnotesize}
 
+#+STARTUP: overview
+#+STARTUP: indent
